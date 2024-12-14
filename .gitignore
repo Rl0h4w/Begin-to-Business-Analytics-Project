@@ -1,0 +1,16 @@
+# LaTeX auxiliary files
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.gz
+
+# Images
+*.jpg
+*.png
+
+# Python virtual environment
+/.venv
+
+# Output files
+*.out
