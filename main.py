@@ -1,7 +1,3 @@
-# Install necessary packages
-!pip install numpy numpy_financial pandas seaborn matplotlib scipy tqdm scikit-learn openpyxl
-
-# Import necessary libraries
 import numpy as np
 import numpy_financial as npf
 import pandas as pd
@@ -10,7 +6,6 @@ from matplotlib import pyplot as plt
 from scipy import stats
 from tqdm import tqdm
 import warnings
-from sklearn.decomposition import PCA
 warnings.filterwarnings('ignore')
 
 class ModelConfig:
@@ -19,7 +14,7 @@ class ModelConfig:
         # Market Parameters
         self.POPULATION = 87.5e6
         self.GDP_GROWTH = 0.12  # Annual GDP growth rate
-        self.INFLATION = 0.45   # Annual inflation rate (Adjusted from 45% to 4%)
+        self.INFLATION = 0.45   
         
         # Exchange Rate (0-th year)
         self.FX_RATE = 35.0
@@ -638,7 +633,7 @@ class ModelVisualizer:
         self.financials = results['financials']
         self.sales_data = results['sales_data']
         self.patient_data = results['patient_data']
-        self.years = self.sales_data.index.to_numpy()  # Added to fix the AttributeError
+        self.years = self.sales_data.index.to_numpy()
         self.setup_plotting_style()
 
     @staticmethod
@@ -935,6 +930,69 @@ class ModelVisualizer:
 
         plt.tight_layout()
         plt.show()
+    
+    def plot_additional_insights(self):
+        """Дополнительные полезные графики для более глубокой аналитики"""
+        monte_carlo = self.results['monte_carlo_results']
+        npv_results = monte_carlo['npv_results']
+        param_values = monte_carlo['param_values']
+
+        # 1. Корреляционная матрица параметров Монте-Карло с NPV
+        corr_data = param_values.copy()
+        corr_data['NPV'] = npv_results
+        corr_matrix = corr_data.corr()
+
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f')
+        plt.title('Корреляционная матрица параметров и NPV')
+        plt.show()
+
+        # 2. Диаграмма рассеяния параметров против NPV
+        # Возьмем несколько параметров для примера
+        sample_params = ['price_factor', 'volume_factor', 'market_growth']
+        fig, axes = plt.subplots(1, len(sample_params), figsize=(16, 5))
+        for ax, param in zip(axes, sample_params):
+            ax.scatter(param_values[param], npv_results, alpha=0.3)
+            ax.set_title(f'{param} vs NPV')
+            ax.set_xlabel(param)
+            ax.set_ylabel('NPV (Millions of Lira)')
+        plt.tight_layout()
+        plt.show()
+
+        # 3. Boxplot для распределения NPV
+        plt.figure(figsize=(8,6))
+        sns.boxplot(x=npv_results, color='skyblue')
+        plt.title('Распределение NPV (Boxplot)')
+        plt.xlabel('NPV (Millions of Lira)')
+        plt.show()
+
+        # 4. Сравнение средних, худших (5 перцентиль) и лучших (95 перцентиль) сценариев по выручке
+        # Предположим, у нас есть распределения параметров, мы можем сгенерировать серию выручки
+        # для 5, 50 и 95 перцентилей. В данном случае используем уже вычисленную статистику NPV как пример.
+        # Для демонстрации возьмем выручку, умножим на факторы для worst/base/best:
+        # Это условная визуализация, т.к. точные сценарии нужно было бы моделировать отдельно.
+        
+        # Базовый сценарий - исходный
+        base_revenue = self.sales_data['Sales']
+        
+        # Худший (5 перцентиль) и лучший (95 перцентиль) сценарии можно приблизительно оценить
+        # как +/- 10% от базового (условно, для демонстрации)
+        worst_revenue = base_revenue * 0.9
+        best_revenue = base_revenue * 1.1
+        
+        df_scenarios = pd.DataFrame({
+            'Worst Case': worst_revenue,
+            'Base Case': base_revenue,
+            'Best Case': best_revenue
+        }, index=self.years)
+
+        df_scenarios.plot(marker='o')
+        plt.title('Сравнение сценариев по выручке')
+        plt.ylabel('Revenue (Lira)')
+        plt.xlabel('Year')
+        plt.grid(True)
+        plt.show()
+
 
 class ResultsExporter:
     """Exports model results to Excel and generates summary reports"""
@@ -990,6 +1048,8 @@ def main():
         print("Generating visualizations...")
         visualizer = ModelVisualizer(results, config)
         visualizer.create_all_visualizations()
+        
+        visualizer.plot_additional_insights()
         
         print("Exporting results in Lira...")
         exporter = ResultsExporter(results, config)
