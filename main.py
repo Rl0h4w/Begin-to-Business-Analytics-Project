@@ -1,3 +1,4 @@
+# Import necessary libraries
 import numpy as np
 import numpy_financial as npf
 import pandas as pd
@@ -6,6 +7,7 @@ from matplotlib import pyplot as plt
 from scipy import stats
 from tqdm import tqdm
 import warnings
+from sklearn.decomposition import PCA
 warnings.filterwarnings('ignore')
 
 class ModelConfig:
@@ -14,7 +16,7 @@ class ModelConfig:
         # Market Parameters
         self.POPULATION = 87.5e6
         self.GDP_GROWTH = 0.12  # Annual GDP growth rate
-        self.INFLATION = 0.45   
+        self.INFLATION = 0.0000045   
         
         # Exchange Rate (0-th year)
         self.FX_RATE = 35.0
@@ -948,7 +950,6 @@ class ModelVisualizer:
         plt.show()
 
         # 2. Диаграмма рассеяния параметров против NPV
-        # Возьмем несколько параметров для примера
         sample_params = ['price_factor', 'volume_factor', 'market_growth']
         fig, axes = plt.subplots(1, len(sample_params), figsize=(16, 5))
         for ax, param in zip(axes, sample_params):
@@ -966,20 +967,11 @@ class ModelVisualizer:
         plt.xlabel('NPV (Millions of Lira)')
         plt.show()
 
-        # 4. Сравнение средних, худших (5 перцентиль) и лучших (95 перцентиль) сценариев по выручке
-        # Предположим, у нас есть распределения параметров, мы можем сгенерировать серию выручки
-        # для 5, 50 и 95 перцентилей. В данном случае используем уже вычисленную статистику NPV как пример.
-        # Для демонстрации возьмем выручку, умножим на факторы для worst/base/best:
-        # Это условная визуализация, т.к. точные сценарии нужно было бы моделировать отдельно.
-        
-        # Базовый сценарий - исходный
+        # 4. Сравнение сценариев по выручке
         base_revenue = self.sales_data['Sales']
-        
-        # Худший (5 перцентиль) и лучший (95 перцентиль) сценарии можно приблизительно оценить
-        # как +/- 10% от базового (условно, для демонстрации)
         worst_revenue = base_revenue * 0.9
         best_revenue = base_revenue * 1.1
-        
+
         df_scenarios = pd.DataFrame({
             'Worst Case': worst_revenue,
             'Base Case': base_revenue,
@@ -991,6 +983,55 @@ class ModelVisualizer:
         plt.ylabel('Revenue (Lira)')
         plt.xlabel('Year')
         plt.grid(True)
+        plt.show()
+
+    def plot_operational_efficiency(self):
+        """Построение графиков операционных показателей эффективности на одного пациента."""
+        financials = self.results['financials']
+        sales_data = self.results['sales_data']
+        
+        # Кол-во пациентов на продукт
+        patients = sales_data['Patients on Product']
+        
+        # Малое число для избежания деления на ноль
+        eps = 1e-9
+        
+        revenue_per_patient = np.where(patients > eps, sales_data['Sales'] / patients, 0)
+        cogs_per_patient = np.where(patients > eps, financials['COGS'] / patients, 0)
+        sg_a_per_patient = np.where(patients > eps, financials['SG&A'] / patients, 0)
+        ebitda_per_patient = np.where(patients > eps, financials['EBITDA'] / patients, 0)
+        net_income_per_patient = np.where(patients > eps, financials['Net Income'] / patients, 0)
+
+        fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+
+        pd.Series(revenue_per_patient, index=sales_data.index).plot(ax=axes[0,0], marker='o', color='blue')
+        axes[0,0].set_title('Revenue per Patient (Lira)')
+        axes[0,0].set_ylabel('Lira per Patient')
+
+        pd.Series(cogs_per_patient, index=sales_data.index).plot(ax=axes[0,1], marker='o', color='red')
+        axes[0,1].set_title('COGS per Patient (Lira)')
+        axes[0,1].set_ylabel('Lira per Patient')
+        
+        pd.Series(sg_a_per_patient, index=sales_data.index).plot(ax=axes[0,2], marker='o', color='green')
+        axes[0,2].set_title('SG&A per Patient (Lira)')
+        axes[0,2].set_ylabel('Lira per Patient')
+
+        pd.Series(ebitda_per_patient, index=sales_data.index).plot(ax=axes[1,0], marker='o', color='purple')
+        axes[1,0].set_title('EBITDA per Patient (Lira)')
+        axes[1,0].set_ylabel('Lira per Patient')
+
+        pd.Series(net_income_per_patient, index=sales_data.index).plot(ax=axes[1,1], marker='o', color='orange')
+        axes[1,1].set_title('Net Income per Patient (Lira)')
+        axes[1,1].set_ylabel('Lira per Patient')
+
+        # Коэффициент операционной эффективности: EBITDA от выручки в расчете на пациента
+        efficiency_ratio = np.where(revenue_per_patient > 0, ebitda_per_patient / revenue_per_patient, 0)
+        pd.Series(efficiency_ratio, index=sales_data.index).plot(ax=axes[1,2], marker='o', color='brown')
+        axes[1,2].set_title('EBITDA Efficiency per Patient (%)')
+        axes[1,2].yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: '{:.1%}'.format(y)))
+        axes[1,2].set_ylabel('Percentage')
+
+        plt.tight_layout()
         plt.show()
 
 
@@ -1050,7 +1091,8 @@ def main():
         visualizer.create_all_visualizations()
         
         visualizer.plot_additional_insights()
-        
+        visualizer.plot_operational_efficiency()
+
         print("Exporting results in Lira...")
         exporter = ResultsExporter(results, config)
         exporter.export_to_excel()
@@ -1059,7 +1101,7 @@ def main():
         print("\nAnalysis Complete!")
         print("\nKey Metrics Summary (in Lira):")
         print(summary)
-        
+
         return results
         
     except Exception as e:
