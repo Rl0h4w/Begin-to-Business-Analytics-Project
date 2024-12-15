@@ -777,13 +777,26 @@ class ModelVisualizer:
 
 
 class ResultsExporter:
-    """Exports model results to Excel and generates summary reports"""
+    """Class for exporting model results."""
+
     def __init__(self, results, config):
+        """
+        Initializes the exporter.
+
+        Args:
+            results (dict): Model results.
+            config (ModelConfig): Model configuration.
+        """
         self.results = results
         self.config = config
 
     def export_to_excel(self, filename='model_results_usd.xlsx'):
-        """Exports various dataframes to an Excel file with multiple sheets"""
+        """
+        Exports results to an Excel file.
+
+        Args:
+            filename (str, optional): The filename. Defaults to 'model_results_usd.xlsx'.
+        """
         with pd.ExcelWriter(filename, engine='openpyxl') as writer:
             self.results['sales_data'].to_excel(writer, sheet_name='Sales Data')
             self.results['financials'].to_excel(writer, sheet_name='Financials')
@@ -795,7 +808,12 @@ class ResultsExporter:
         print(f"Results successfully exported to {filename}")
 
     def generate_summary_report(self):
-        """Generates a summary report of key metrics"""
+        """
+        Generates a summary report of key metrics.
+
+        Returns:
+            pd.DataFrame: Summary report.
+        """
         summary = {
             'Market Metrics': {
                 'Final Market Share': self.results['sales_data']['Segment Share'].iloc[-1],
@@ -817,6 +835,7 @@ class ResultsExporter:
         }
         summary_df = pd.DataFrame(summary)
         return summary_df
+
 
 
 def main():
